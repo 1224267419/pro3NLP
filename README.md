@@ -593,11 +593,129 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
 # RNN案例1----人名分类器任务
 
+  构建人名分类器
 
+- 1. 导入包
+  2. 下载数据, 并完成数据的处理过程(数据的清洗)
+     1. 统计常用的字符
+     2. 进行规范化处理, 去除重音符号
+     3. 将文件读取到内存中
+     4. 构建人名国家和具体人名的对应关系{'Chinese':[xxx,xxx,xxx......]}
+     5. 构建人名的one-hot编码
+  3. 构建RNN模型(LSTM, GRU)
+     1. 构建RNN模型
+        1. def \__init__(input_size, hidden_size, output_size, num_layer=1)
+        2. Def forward()
+        3. Def initHidden()
+     2. 构建LSTM模型
+        1. def \__init__(input_size, hidden_size, output_size, num_layer=1)
+        2. Def forward()
+        3. Def initHiddenAndC()
+     3. 构建GRU模型
+        1. def \__init__(input_size, hidden_size, output_size, num_layer=1)
+        2. Def forward()
+        3. Def initHidden()
+  4. 构建训练函数并进行训练
+     1. 辅助函数categoryFromOutput函数定义完成    返回值:   类别,  类别对应的索引
+     2. 辅助函数  随机生成数据集的   返回值: category    line    category_tensor   line_tensor
+     3. RNN的训练函数
+        1. 初始化了h0
+        2. 梯度清零
+        3. 计算预测值
+        4. 通过损失函数计算损失值  loss
+        5. Loss.backward()
+        6. 手动更新参数
+     4. LSTM训练函数
+     5. GRU训练函数
+     6. 定义完整的train函数, 其中参数train_type_fn是在咱们之前定义的  RNN, LSTM, GRU的训练函数(函数的名字可以当中函数的参数进行使用)
+  5. 构建评估函数并进行验证
+     1. 构建RNN的评估函数  evaluateRNN()
+     2. 构建LSTM评估函数evaluateLSTM()
+     3. 构建GRU评估函数evaluateGRU()
+     4. 构建预测函数  predict()
+        1. With torch.no_grad()   不对梯度进行更新
 
 [数据集下载链接](https://download.pytorch.org/tutorial/data.zip)
 
+ [代码](3_RNN\3_name2category.py) 
 
+如下图,RNN的损失下降更快,而GRU和LSTM在简单任务上表现不佳(优势在复杂任务)
+
+![RNN_LSTM_GRU_loss](README.assets/RNN_LSTM_GRU_loss.png)
+
+如下图,RNN消耗的时间最短,LSTM时间最长,GRU接近
+
+![RNN_LSTM_GRU_period](README.assets/RNN_LSTM_GRU_period.png)
+
+
+
+## RNN案例2: 英译法任务
+
+- **seq2seq架构**
+
+  - ![seq2seq](README.assets/seq2seq.png)
+  - 结构:    编码器   --->   中间语义张量  --> 解码器
+
+- 翻译的任务步骤
+
+  - 第一步: 导入必备的工具包.
+
+  - 第二步: 对持久化文件中数据进行处理, 以满足模型训练要求.(文本预处理的部分)
+
+    - 数据处理思路:   字符串 --> 数值 --> 稠密矩阵(word2vec,    word embedding)  -> 模型  (放大可以看看
+
+      ​							字符串 ---> one-hot编码  ---> 模型
+
+    - 构建了单词--index    构建了  index--> 单词
+
+    - 定义去除重音的辅助函数
+
+    - 字符规范化的函数    正则表达式:    (ab)   分组    \num --> 分组之后的引用
+
+    - 构建了处理文本的函数,  pairs, 英文和法文的语言对
+
+    - 构建了paris过滤函数
+
+    - 进行语言对的数值映射
+
+    - 数值进行tensor张量的转化
+
+  - 第三步: 构建基于GRU的编码器和解码器.
+
+    - 构建了基于GRU的编码器
+      - embedding层 和hidden--> gru --> output , hidden
+    - 构建基于GRU的解码器
+      - embedding--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
+
+  - 第四步: 构建模型训练函数, 并进行训练.
+
+    - 1. teacher_forcing: 将上一步的预测结果强制设置为正确结果的输出
+      2. 作用: 1. 避免在序列生成的过程中误差的进一步放大   2. 可以加快模型的收敛速度
+    - Train训练函数的主题思路
+      - hidden初始化
+      - 梯度清零
+      - 使用模型进行预测, 得到预测值
+      - 预测值和真实值进行损失计算   loss
+      - Loss.backward()
+      - 参数更新   step()
+    - 中间语义张量c--> encoder_outputs(2维)
+    - 构建时间计算的辅助函数
+    - 封装完整的trianIters()
+      - 初始化变量
+      - 定义优化器和损失函数
+      - 循环迭代开始训练调用train   数据集选用的方式也是使用随机生成
+      - 可以选择间隔打印或是绘制损失图
+      - 最后使用loss进行损失图的绘制
+
+  - 第五步: 构建模型评估函数, 并进行测试以及Attention效果分析
+
+    - with torch.no_grad()
+      - 先要确定解码语句的长度
+      - 调用编码器进行编码, 得出 encoder_outputs
+      - 调用解码器进行解码, 在这个过程中不能使用teacher_forcing
+      - 返回值是: 单词列表和 注意力机制的二维结构
+    - attention可视化
+      - 通过图形可以知道attention对于我模型的可用性
 
 
 
