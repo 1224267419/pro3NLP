@@ -1,8 +1,10 @@
+
 import matplotlib.pyplot as plt
 import torch.nn as nn
 import torch.nn.functional as F
+from docutils.nodes import target
+from multipledispatch.dispatcher import source
 from nltk.classify.tadm import encoding_demo
-from pygments.lexers.supercollider import SuperColliderLexer
 # from jieba.lac_small.predict import batch_size
 from sympy.stats.sampling.sample_numpy import numpy
 from torch.autograd import Variable
@@ -377,8 +379,8 @@ if __name__ == '__main__':
 
             x=self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask)) #第一层连接,输入x,调用自注意力函数
             return self.sublayer[1](x, self.feed_forward) #第二个子层连接,输入x,子层函数
-    #编码层
-    print("编码层")
+    #编码器层encoder layer
+    print("编码器层encoder layer")
     size=512
     head=8
     d_model=512
@@ -390,3 +392,223 @@ if __name__ == '__main__':
     mask=Variable(torch.zeros(8,4,4)) #掩码张量
     encoder_layer=EncoderLayer(d_model,self_attn, ff, dropout) #编码层实例化
     encoder_layer_result=encoder_layer(x, mask) #编码层前向传播
+
+
+
+    #编码器encoder
+    class Encoder(nn.Module):
+        def __init__(self,layer,N):
+            """
+
+            :param layer: encoder_layer
+            :param N: num_layers
+            """
+            super(Encoder,self).__init__()
+            #N个编码器层,用深拷贝避免指向同一个层
+            self.layers=clones(layer,N)
+            self.N=N
+            self.norm=LayerNorm(d_model) #编码器层后进行层归一化
+        def forward(self,x,mask):
+            """
+
+            :param x:input
+            :param mask: 掩码
+            :return: encoder output
+            """
+            for layer in self.layers:
+                x=layer(x,mask)
+
+            return self.norm(x)
+    #编码器
+    print("编码器encoder")
+    x=pe_result#位置信息输出即编码层的输入
+    size = 512
+    head = 8
+    d_model = 512
+    d_ff = 64
+    c = copy.deepcopy
+    attn = MultiHeadedAttention(head, d_model)
+    ff = PositionwiseFeedForward(d_model, d_ff, dropout)
+    dropout = 0.2
+    #这些对象一定要做深拷贝,避免多个layer指向同一位置
+    layer = EncoderLayer(size, c(attn), c(ff), dropout) #编码层实例化
+
+    # 编码器中编码器层的个数N
+    N = 8
+    mask = Variable(torch.zeros(8, 4, 4))
+
+    encoder = Encoder(layer, N)
+    encoder_result = encoder(x, mask)
+    print("encoder_result",encoder_result)
+    print("encoder_result.shape",encoder_result.shape)
+
+    class DecoderLayer(nn.Module):
+        #包括三个子层
+        def __init__(self,size,self_attn,src_attn,feed_forward,dropout):
+            """
+
+            :param size: embedding大小
+            :param self_attn: 自注意力层
+            :param src_attn: 普通注意力层
+            :param feed_forward: 前馈全连接层
+            :param dropout: 
+            """
+            super(DecoderLayer,self).__init__()
+            self.size = size
+            self.self_attn = self_attn
+            self.src_attn = src_attn
+            self.feed_forward = feed_forward
+            self.sublayer = clones(SublayerConnection(size,dropout),3) #子层连接,残差网络实现
+        def forward(self,x,memory,src_mask,tgt_mask):
+            """
+
+            :param x: 来自上一层的输入
+            :param memory: 来自encoder的语义存储变量
+            :param src_mask: 源数据掩码张量
+            :param tgt_mask: 目标数据掩码张量
+            :return:
+            """
+            x=self.sublayer[0](x,lambda x:self.self_attn(x,x,x,tgt_mask)) #自注意力层
+            x=self.sublayer[1](x,lambda x:self.src_attn(x,memory,memory,src_mask))# 普通注意力层
+            x=self.sublayer[2](x,self.feed_forward) #前馈全连接层
+            return x
+    print("decoder layer")
+    x=pe_result
+    memory=encoder_result
+    mask=Variable(torch.zeros(8,4,4))
+    source_mask=target_mask=mask
+
+    head=8
+    size=512
+    d_model=512
+    d_ff=64
+    dropout=0.2
+    c=copy.deepcopy
+    self_attn=MultiHeadedAttention(head,d_model,dropout)#自注意力层
+    src_attn=MultiHeadedAttention(head,d_model,dropout)    #普通注意力层
+    ff=PositionwiseFeedForward(d_model,d_ff,dropout) #前馈全连接层
+    de_layer=DecoderLayer(size,c(self_attn),c(src_attn),c(ff),dropout)
+    de_layer_result=de_layer(x,memory,source_mask,target_mask)
+    print("de_layer_result.shape",de_layer_result.shape,"\nde_layer",de_layer_result)
+    class Decoder(nn.Module):
+        def __init__(self, layer, N):
+            super(Decoder, self).__init__()
+            self.layers = clones(layer, N)
+            self.norm = LayerNorm(layer.size)
+
+
+
+        def forward(self, x, memory, source_mask, target_mask):
+            for layer in self.layers:
+                x = layer(x, memory,  source_mask, target_mask)
+            return self.norm(x)
+
+    print("解码器decoder")
+    x = pe_result  # 位置信息输出即解码器的输入
+    size = 512
+    head = 8
+    d_model = 512
+    d_ff = 64
+    c = copy.deepcopy
+    self_attn = MultiHeadedAttention(head, d_model, dropout)  # 自注意力层
+    src_attn = MultiHeadedAttention(head, d_model, dropout)  # 普通注意力层
+    ff = PositionwiseFeedForward(d_model, d_ff, dropout)  # 前馈全连接层
+    de_layer = DecoderLayer(size, c(self_attn), c(src_attn), c(ff), dropout)
+    dropout=0.2
+    # 这些对象一定要做深拷贝,避免多个layer指向同一位置
+    # 编码器中编码器层的个数N
+    N = 8
+    mask = Variable(torch.zeros(8, 4, 4))
+    source_mask = target_mask = mask
+    memory=encoder_result
+    decoder = Decoder(de_layer, N)
+    decoder_result = decoder(x, memory,source_mask, target_mask)
+    print("decoder_result", decoder_result)
+    print("decoder_result.shape", decoder_result.shape)
+
+    # 生成器
+    class Generator(nn.Module):
+        def __init__(self, d_model, vocab_size):
+            """
+
+            :param d_model: embedding维度
+            :param vocab_size: 词表大小
+            """
+            super(Generator, self).__init__()
+            #用线性层改变维度大小,最后用softmax输出概率
+            self.project= nn.Linear(d_model, vocab_size)
+        def forward(self, x):
+            #先用liner转换为vocab_size大小的结果,最后用softmax输出
+            #用log_softmax不影响最终结果
+            return F.log_softmax(self.project(x), dim=-1)
+
+    # 生成器(根据解码器输出生成output
+    d_model=512
+    vocab_size=1000
+    gen = Generator(d_model, vocab_size)
+    x=decoder_result
+    output = gen(x)
+    print("output.shape", output.shape,"output", output)
+
+    #编码器-解码器
+    class EncoderDecoder(nn.Module):
+        def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
+            """
+            :param encoder: 编码器
+            :param decoder: 解码器
+            :param src_embed: source 源数据embedding函数
+            :param tgt_embed: target目标数据embedding函数
+            :param generator: 输出类别generator
+            """
+            super(EncoderDecoder, self).__init__()
+            self.encoder = encoder
+            self.decoder = decoder
+            self.src_embed = src_embed
+            self.tgt_embed = tgt_embed
+            self.generator = generator
+
+        def encode(self,source,source_mask):
+
+            return self.encoder(self.src_embed(source),source_mask)
+
+        def decode(self,memory,source_mask,target,tgt_mask):
+            #decoder的 forward(self,  x, memory(编码器的输出), source_mask, target_mask):
+            return self.decoder(self.tgt_embed(target),memory,source_mask,tgt_mask)
+
+        def forward(self, src, tgt, src_mask, tgt_mask):
+            """
+
+            :param src: 源数据
+            :param tgt: 目标数据
+            :param src_mask: 源数据掩码
+            :param tgt_mask: 目标数据掩码
+            :return:
+            """
+
+            return self.generator(self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask))
+
+    vocab_size=1000
+    d_model=512
+    #上面实现的编码器和解码器
+    encoder=encoder
+    decoder=decoder
+    #嵌入层
+    source_embd=nn.Embedding(vocab_size,d_model)
+    target_embd=nn.Embedding(vocab_size,d_model)
+    #上面实现的generator
+    generator=gen
+    #上面实现的模型
+    encoder_decoder=EncoderDecoder(encoder,decoder,source_embd,target_embd,generator)
+    # 假设源数据与目标数据相同, 实际中并不相同
+    source = target = Variable(torch.LongTensor([[100, 2, 421, 508], [491, 998, 1, 221]]))
+
+    # 假设src_mask与tgt_mask相同，实际中并不相同
+    source_mask = target_mask = Variable(torch.zeros(8, 4, 4).long())
+
+    ed = EncoderDecoder(encoder, decoder, source_embd, target_embd, generator)
+    ed_result = ed(source, target, source_mask, target_mask)
+    print('ed_result.shape ==', ed_result.shape,'ed_result', ed_result)
+
+#TODO 回来查报错
+# def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
+

@@ -1,10 +1,5 @@
-# -*- coding: utf-8 -*-
-# @Author  : Chinesejun
-# @Email   : itcast@163.com
-# @File    : 03-seq2seq架构翻译.py
-# @Software: PyCharm
 
-# todo 第一步: 导入必备的工具包.
+# todo1 导入必备的工具包.
 # 从io工具包导入open方法
 from io import open
 # 用于字符规范化
@@ -21,8 +16,10 @@ import torch.nn.functional as F
 from torch import optim
 # 设备选择, 我们可以选择在cuda或者cpu上运行你的代码
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#数据所在位置
+data_path = './data/eng-fra.txt'
+# todo2 对持久化文件中数据进行处理, 以满足模型训练要求.
 
-# todo 第二步: 对持久化文件中数据进行处理, 以满足模型训练要求.
 # 起始标志
 SOS_token = 0
 # 结束标志
@@ -228,10 +225,12 @@ class EncoderRNN(nn.Module):
         # 将输入张量进行embedding操作, 并使其形状变为(1,1,-1),-1代表自动计算维度
         # 理论上，我们的编码器每次只以一个词作为输入, 因此词汇映射后的尺寸应该是[1, embedding]
         # 而这里转换成三维的原因是因为torch中预定义gru必须使用三维张量作为输入, 因此我们拓展了一个维度
-        # print('embedding===', self.embedding(input))
+        self.embedding=self.embedding.to(device)
+        # print('embedding===', self.embedding(input))  #输出浪费太多性能.注释后cuda占用从不到20%上升至50%
         output = self.embedding(input).view(1, 1, -1)
         # 然后将embedding层的输出和传入的初始hidden作为gru的输入传入其中,
         # 获得最终gru的输出output和对应的隐层张量hidden， 并返回结果
+        self.gru=self.gru.to(device)
         output, hidden = self.gru(output, hidden)
         return output, hidden
 
@@ -248,9 +247,10 @@ input_size = 20
 # pair_tensor[0]代表源语言即英文的句子，pair_tensor[0][0]代表句子中
 # 的第一个词
 input = pair_tensor[0][0]
+input=input.to(device)
 # 初始化第一个隐层张量，1x1xhidden_size的0张量
 hidden = torch.zeros(1, 1, hidden_size)
-
+hidden=hidden.to(device)
 encoder = EncoderRNN(input_size, hidden_size)
 encoder_output, hidden = encoder(input, hidden)
 print(encoder_output)
@@ -280,6 +280,11 @@ class DecoderRNN(nn.Module):
            hidden代表解码器GRU的初始隐层张量"""
         # 将输入张量进行embedding操作, 并使其形状变为(1,1,-1),-1代表自动计算维度
         # 原因和解码器相同，因为torch预定义的GRU层只接受三维张量作为输入
+        self.embedding=self.embedding.to(device)
+        self.gru=self.gru.to(device)
+        self.softmax=self.softmax.to(device)
+        self.out=self.out.to(device)
+        hidden=hidden.to(device)
         output = self.embedding(input).view(1, 1, -1)
         # 然后使用relu函数对输出进行处理，根据relu函数的特性, 将使Embedding矩阵更稀疏，以防止过拟合
         output = F.relu(output)
@@ -323,6 +328,7 @@ class AttnDecoderRNN(nn.Module):
 
         # 实例化一个Embedding层, 输入参数是self.output_size和self.hidden_size
         self.embedding = nn.Embedding(self.output_size, self.hidden_size)
+        self.embedding= self.embedding.to(device)
         # 根据attention的QKV理论，attention的输入参数为三个Q，K，V，
         # 第一步，使用Q与K进行attention权值计算得到权重矩阵, 再与V做矩阵乘法, 得到V的注意力表示结果.
         # 这里常见的计算方式有三种:
@@ -341,20 +347,27 @@ class AttnDecoderRNN(nn.Module):
         # 这里的Q是解码器的Embedding层的输出, K是解码器GRU的隐层输出，因为首次隐层还没有任何输出，会使用编码器的隐层输出
         # 而这里的V是编码器层的输出
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
+        self.attn=self.attn.to(device)
         # 接着我们实例化另外一个线性层, 它是attention理论中的第四步的线性层，用于规范输出尺寸
         # 这里它的输入来自第三步的结果, 因为第三步的结果是将Q与第二步的结果进行拼接, 因此输入维度是self.hidden_size * 2
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.attn_combine=self.attn_combine.to(device)
         # 接着实例化一个nn.Dropout层，并传入self.dropout_p
         self.dropout = nn.Dropout(self.dropout_p)
+        self.dropout=self.dropout.to(device)
         # 之后实例化nn.GRU, 它的输入和隐层尺寸都是self.hidden_size
         self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        self.gru=self.gru.to(device)
         # 最后实例化gru后面的线性层，也就是我们的解码器输出层.
         self.out = nn.Linear(self.hidden_size, self.output_size)
+        self.out=self.out.to(device)
 
 
     def forward(self, input, hidden, encoder_outputs):
         """forward函数的输入参数有三个, 分别是源数据输入张量, 初始的隐层张量, 以及解码器的输出张量"""
-
+        input=input.to(device)
+        hidden=hidden.to(device)
+        encoder_outputs=encoder_outputs.to(device)
         # 根据结构计算图, 输入张量进行Embedding层并扩展维度
         embedded = self.embedding(input).view(1, 1, -1)
         # 使用dropout进行随机丢弃，防止过拟合
