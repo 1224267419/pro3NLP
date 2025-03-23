@@ -479,6 +479,16 @@ RNN的分类
 
 #### LSTM(长短时记忆结构)
 
+#### ![img](README.assets/v2-a3071d9323879e82a25d8a4c3ef4cc54_1440w.jpg)
+
+（1）遗忘门 ft 控制**上一时刻的内部状态** $C_{t-1}$ 需要遗忘多少信息；
+
+（2）输入门 it 控制**当前时刻的候选状态** $\tilde{C}_{t}$ 有多少信息需要保存；
+
+（3）输出门 ot 控制**当前时刻的内部状态** $C_t$ 有多少信息需要输出给**外部状态**$h_t$；
+
+
+
 σ:sigmoid函数:$ \text{sigmoid}(x) = \frac{1}{1 + e^{-x}} $
 
 tanh函数:$ \text{tanh}(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}} $
@@ -511,16 +521,19 @@ tanh函数:$ \text{tanh}(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}} $
 
 #### GRU
 
-![image-20250316221707582](README.assets/image-20250316221707582.png)
+![img](README.assets/v2-fc71ed29591b78eb15d8e73fb675f00b_1440w.jpg)
 
 $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\sigma\left(W_{r}\cdot[h_{t-1},x_{t}]\right)\\&\tilde{h}_{t}=\mathrm{tanh}\left(W\cdot[r_{t}*h_{t-1},x_{t}]\right)\\&h_{t}=(1-z_{t})*h_{t-1}+z_{t}*\tilde{h}_{t}\end{aligned}$$
 
+- 重置门:$r_t$:用来控制**候选状态**$ \tilde{h}_{t}$ 的计算是否依赖**上一时刻状态**$ h_{t−1}$
+- 更新门:$z_t$,控制**当前状态** $h_t$ 需要从**上一时刻状态** $h_{t−1}$ 中保留多少信息（不经过非线性变换），以及需要从**候选状态**$ \tilde{h}_{t}$中接受多少信息；
+
 和之前分析过的LSTM中的门控一样，首先计算更新门和重置门的门值，分别是z(t)和r(t)计算方法就是使用X(t)与h(t-1)拼接进行线性变换再经过sigmoid激活.之后重置门门值作用在了(t1)上，代表控制上一时间步传来的信息有多少可以被利用.接着就是使用这个重置后的h(t1)进行基本的RNN计算，即与x(①拼接t进行线性变化，经过tanh激活，得到新的 h().最后更新门的门值会作用在新的h(t),而1-门值会作用在h(t-1)上，随后将两者的结果相加，得到最终的隐含状态输出h(t)，这个过程意味着更新门有能力保留之前的结果，当门值趋于1时，输出就是新的h(t)，而当门值趋于0时，输出就是上一步的$h_{t-1}$
 
-- 重置门:$r_t$
-- 更新门:$z_t$,控制多少信息被保留
-  - 优点: 可以**缓解RNN中的梯度消失和爆炸**的问题, 同时**参数**量比LSTM**少**
-  - 缺点:1. 还是没有根本上解决梯度消失和爆炸的问题,  2. RNN本身结构的弊端, **当前时间步的计算需要依赖于上一时间步的计算结果**, 在此后**不能**进行**并行**运算
+- 优点: 可以**缓解RNN中的梯度消失和爆炸**的问题, 同时**参数**量比LSTM**少**
+- 缺点:
+  1.  还是没有根本上解决梯度消失和爆炸的问题,  
+  2.  RNN本身结构的弊端, **当前时间步的计算需要依赖于上一时间步的计算结果**, 在此后**不能**进行**并行**运算
 
 - #### Bi-GRU
 
@@ -662,11 +675,11 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
   - 第二步: 对持久化文件中数据进行处理, 以满足模型训练要求.(文本预处理的部分)
 
-    - 数据处理思路:   字符串 --> 数值 --> 稠密矩阵(word2vec,    word embedding)  -> 模型  (放大可以看看
+    - 数据处理思路:   字符串 --> 数值 --> **稠密矩阵(word2vec,    word embedding)**  -> 模型  (放大可以看
 
       ​							字符串 ---> one-hot编码  ---> 模型
 
-    - 构建了单词--index    构建了  index--> 单词
+    - 单词-->index      index--> 单词
 
     - 定义去除重音的辅助函数
 
@@ -680,15 +693,20 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
     - 数值进行tensor张量的转化
 
-  - 第三步: 构建基于GRU的编码器和解码器.
+  - 第三步: 构建基于GRU的编码器和解码器.形状如下图所示
+    其中黄色为tensor,蓝色为处理模块
+    ![image-20250323153652171](README.assets/image-20250323153652171.png)
+  
+  - 基于GRU和Attention的解码器
+    ![image-20250323173133687](README.assets/image-20250323173133687.png)
 
-    - 构建了基于GRU的编码器
-      - embedding层 和hidden--> gru --> output , hidden
-    - 构建基于GRU的解码器
-      - embedding--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
-
+    - 构建了基于GRU的**编码器**
+      - embedding(input,hidden)--> gru --> output , hidden
+    - 构建基于GRU的**解码器**
+      - embedding(output,hidden)--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
+  
   - 第四步: 构建模型训练函数, 并进行训练.
-
+  
     - 1. teacher_forcing: 将上一步的预测结果强制设置为正确结果的输出
       2. 作用: 1. 避免在序列生成的过程中误差的进一步放大   2. 可以加快模型的收敛速度
     - Train训练函数的主题思路
@@ -706,9 +724,9 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
       - 循环迭代开始训练调用train   数据集选用的方式也是使用随机生成
       - 可以选择间隔打印或是绘制损失图
       - 最后使用loss进行损失图的绘制
-
+  
   - 第五步: 构建模型评估函数, 并进行测试以及Attention效果分析
-
+  
     - with torch.no_grad()
       - 先要确定解码语句的长度
       - 调用编码器进行编码, 得出 encoder_outputs
