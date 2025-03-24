@@ -540,7 +540,6 @@ def timeSince(since):
     # 返回指定格式的耗时
     return '%dm %ds' % (m, s)
 
-#
 # 假定模型训练开始时间是10min之前
 since = time.time() - 10*60
 
@@ -627,9 +626,32 @@ n_iters = 75000
 # 设置日志打印间隔
 print_every = 5000
 
-# 调用
-# 调用trainIters进行模型训练，将编码器对象encoder1，码器对象attn_decoder1，迭代步数，日志打印间隔传入其中
-trainIters(encoder1, attn_decoder1, n_iters, print_every=print_every)
+
+PATHENCODER='./model/seq2seq_eng2fra_encoder.pth'
+PATHDECODER='./model/seq2seq_eng2fra_decoder.pth'
+PATH_ATTN_DECODER='./model/seq2seq_eng2fra_attn_decoder1.pth'
+
+# 训练
+# 调用trainIters进行模型训练，将编码器对象encoder1，解码器对象attn_decoder1，迭代步数，日志打印间隔传入其中
+# trainIters(encoder1, attn_decoder1, n_iters, print_every=print_every)
+# #保存模型
+# torch.save(encoder1.state_dict(), PATHENCODER)
+# torch.save(decoder.state_dict(), PATHDECODER)
+# torch.save(attn_decoder1.state_dict(),PATH_ATTN_DECODER)
+
+
+
+#读取模型
+encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
+decoder = AttnDecoderRNN(hidden_size, output_size)
+attn_decoder1 = AttnDecoderRNN(hidden_size, output_lang.n_words, dropout_p=0.1).to(device)
+
+encoder1.load_state_dict(torch.load(PATHENCODER))
+# rnn_1=rnn_1.load_state_dict(torch.load(PATHRNN)) #错误做法,返回_IncompatibleKeys这个对象
+# decoder.load_state_dict(torch.load(PATHDECODER))
+attn_decoder1.load_state_dict(torch.load(PATH_ATTN_DECODER))
+
+
 
 # 第五步: 构建模型评估函数, 并进行测试以及Attention效果分析.
 

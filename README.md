@@ -667,7 +667,7 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 - **seq2seq架构**
 
   - ![seq2seq](README.assets/seq2seq.png)
-  - 结构:    编码器   --->   中间语义张量  --> 解码器
+  - 结构:    编码器   --->   中间语义张量(encoder_output应该是encoder对input的**所有结果的输出而非最后一个词的输出**)  --> 解码器
 
 - 翻译的任务步骤
 
@@ -693,22 +693,42 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
     - 数值进行tensor张量的转化
 
-  - 第三步: 构建基于GRU的编码器和解码器.形状如下图所示
+  - 第三步: 构建基于GRU的encoder和decoder.encoder形状如下图所示
     其中黄色为tensor,蓝色为处理模块
     ![image-20250323153652171](README.assets/image-20250323153652171.png)
   
-  - 基于GRU和Attention的解码器
+  - 基于GRU的**encoder**
+  
+    embedding(input,hidden)--> gru --> output , hidden
+  
+    构建基于GRU的**decoder**
+  
+    ![image-20250324123945225](README.assets/image-20250324123945225.png)
+  
+    - embedding(output,hidden)--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
+  
+  - 基于**GRU和Attention**的**decoder**, 相较于上面的decoder做了**以下改动**
+  
+    1. input在embedding和dropout后和prev_hidden输入attention
+    2. encoder_output和上面attention的output经过bmm(第一维度是batchsize对第2,3维度做矩阵乘法)和attn_combine处理后作为gru的输入
+       在这个attention中
+       - q=embedded,k=prev_hidden ,v=encoder_outputs
+  
     ![image-20250323173133687](README.assets/image-20250323173133687.png)
-
-    - 构建了基于GRU的**编码器**
-      - embedding(input,hidden)--> gru --> output , hidden
-    - 构建基于GRU的**解码器**
-      - embedding(output,hidden)--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
   
   - 第四步: 构建模型训练函数, 并进行训练.
   
-    - 1. teacher_forcing: 将上一步的预测结果强制设置为正确结果的输出
-      2. 作用: 1. 避免在序列生成的过程中误差的进一步放大   2. 可以加快模型的收敛速度
+    - 1. **teacher_forcing: 将上一步的预测结果强制设置为正确结果的输出**
+      
+         如果使用free-running-mode ,某一个unit产生了错误结果，必然会影响后续unit的学习
+      
+         注意,应设置合适的teacher_forcing_ratio,过大可能会过拟合
+      
+      2. 作用: 
+      
+         1.  **避免在序列生成的过程中误差的进一步放大**   
+         2. 可以**加快模型的收敛速度**,模型**训练更平稳**
+      
     - Train训练函数的主题思路
       - hidden初始化
       - 梯度清零
@@ -716,8 +736,11 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
       - 预测值和真实值进行损失计算   loss
       - Loss.backward()
       - 参数更新   step()
-    - 中间语义张量c--> encoder_outputs(2维)
+      
+    - **中间语义张量c**--> encoder_outputs(2维)
+  
     - 构建时间计算的辅助函数
+  
     - 封装完整的trianIters()
       - 初始化变量
       - 定义优化器和损失函数

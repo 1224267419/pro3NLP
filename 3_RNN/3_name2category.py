@@ -16,7 +16,8 @@ from xgboost.dask import predict
 
 
 def time_since(since): #计时
-    return time.time() - since
+    s=time.time() - since
+    return 'since  %d minutes %d seconds' % (s//60, s%60)
 
 
 class RNN(nn.Module):
