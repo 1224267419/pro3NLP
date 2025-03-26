@@ -303,11 +303,23 @@ inputs, labels = data[0].to(device), data[1].to(device)
 train_onehot_encode和test_onehot_encode方法存储了编码器的训练,保存和调用的过程
 ```
 
-- word2vec
+- word2vec :为了训练onehot->vector的中间矩阵Q,准确与否用概率做判断即可
 
-  - cbow:  **词袋**模式   特点: **两边预测中间**
+  - cbow:  **词袋**模式   特点: **两边预测中间** ,因此loss只由一个词得到,反向传播较易
   - Skipgram:   特点: **中间词预测两边**
+  - 缺点:生成的embedding矩阵不存在位置信息,如 I love you=you love I 
+
+- ELMo
+
+  - 上述两个训练好的embedding矩阵可能存在原始数据集上的缺陷(比如苹果只知道**水果苹果**,却没能和**手机**联系到一起).
+  - <img src="README.assets/基于上下文的emedding.jpg" alt="img" style="zoom:33%;" />
+  - 用一个双向LSTM实现**将上下文的信息融入到词义**当中(可以理解为**位置信息的一种**),(左侧正向LSTM将**前文融入后文**,右侧LSTM将**后文信息融入前文**),经过**中间的神经网络**后生成了词向量$T_1,T_2...T_n$
+  - 通过**上下文信息**解决**一词多义**的问题
+
+- fasttext
+
   - fasttext安装( [安装包](2_Text_Pre-Processing\fasttext_wheel-0.9.2-cp38-cp38-win_amd64.whl) )
+
   - fasttext训练词向量
 
     - 第一步: 获取训练数据
@@ -332,6 +344,8 @@ train_onehot_encode和test_onehot_encode方法存储了编码器的训练,保存
 
     - 广义word embedding  --> word2vec,扩展到高维空间
     - 狭义的word embedding : 神经网路中的embedding层
+
+    
 
 ### 使用**fasttext**⼯具实现**word2vec**的训练
 
@@ -547,28 +561,37 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
 # Attention Is All You Need
 
+[注意力机制的本质](https://www.bilibili.com/video/BV1dt4y1J7ov/?share_source=copy_web&vd_source=9e952e3695aa7bfc9ff110afee9f3d34) ![image-20250325161759472](README.assets/image-20250325161759472.png)softmax()用于做归一化实现加权平均,
+
 #### 1. 注意力计算规则 : 
 
 - Q(query): 查询向量
-- K(key): 键向量
+- K(key): 键向量,**K和V可以相同也可以不同，但是得具有关联性来使概率分布具有指导意义**,否则意义不大
 - V(value): 值向量
+- 这里的Q,K,V是q,k,v经过$W_Q,W_K,W_V$做线性变换(Liner层)得到的
+
+<img src="README.assets/image-20250325160552730.png" alt="image-20250325160552730" style="zoom:50%;" />
+
+![img](README.assets/attention-计算图.png)q和k做点积实际上就是一种信息提取(找到哪里要注意),softmax归一化后得到**各个单词的重点程度**,**乘上v即可指导哪些词重要哪些词不重要**
 
 它需要三个指定的输入**Q(quey),K(key),V(value)**,然后通过计算公式得到注意力的结果这个**结果代表query在key和value作用下的注意力表示**.当输入的**Q=K=V**时，称作**自注意力(self-attention)**计算规则
 
 - 常见的注意力计算规则:
 
+  ![image-20250325161547568](README.assets/image-20250325161547568.png)
+  
   1. 将Q，K进行纵轴拼接，做一次性变化，再使用**softmax处理**获得结果最后与V做张量乘法。
      $$
      Attention(Q, K, V) = Softmax(Linear([Q, K])) \cdot V
      $$
-
-  2. 将Q，K进行纵轴拼接，做一次线性变化后再使用tanh函数激活，然后再进行内部求和，最后使用softmax处理获得结果再与V做张量乘法。
+  
+  2. 将Q，K进行纵轴拼接，做一次线性变化后再使用tanh函数激活，然后再进行内部求和，最后使用softmax处理获得结果再与V做张量乘法。  
      $$
      Attention(Q, K, V) = Softmax(sum(tanh(Linear([Q, K])))) \cdot V
      $$
 
   3. 将**Q与K的转置做点积运算**，然后除以一个缩放系数，再使用softmax处理获得结果最后与V做张量乘法(**transformer**里面用)[2_attention_demo.py](3_RNN\2_attention_demo.py) 
-
+  
     
      $$
      Attention(Q,K,V)=Softmax(\frac{Q\cdot K^T}{\sqrt{d_k}})\cdot V
@@ -579,7 +602,7 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
   算.bmm是⼀种特殊的张量乘法运算,如下的参数其实是对**后两维进行矩阵乘法**
 
   bmm运算演示:  [2_attention_demo.py](3_RNN\2_attention_demo.py) 中的bmm_demo
-
+  
   ```py
   # 如果参数1形状是(b × n × m), 参数2形状是(b × m × p), 则输出为(b × n × p)
   input = torch.randn(10, 3, 4)
@@ -601,6 +624,12 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
 - **编码器: 在特征提取的过程中,可以关注重要的部分进行提取**
 - **解码器: 有效的聚焦编码器的输出结果, 提升解码器的效果**
+
+## Self-Attention
+
+Q,K,V由同一个x经过$W_Q,W_K,W_V$得到,则$f(X)=softmax(XX^T/\sqrt{d})X$,即通过自己与自己的attention,得到这个序列中各个词之间的联系
+
+
 
 
 
@@ -662,7 +691,7 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
 
 
-## RNN案例2: 英译法任务
+# RNN案例2: 英译法任务
 
 - **seq2seq架构**
 
@@ -693,7 +722,8 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 
     - 数值进行tensor张量的转化
 
-  - 第三步: 构建基于GRU的encoder和decoder.encoder形状如下图所示
+  - 第三步: 构建基于GRU的encoder和decoder.
+    **encoder**形状如下图所示:
     其中黄色为tensor,蓝色为处理模块
     ![image-20250323153652171](README.assets/image-20250323153652171.png)
   
@@ -701,11 +731,13 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
   
     embedding(input,hidden)--> gru --> output , hidden
   
-    构建基于GRU的**decoder**
+    
   
-    ![image-20250324123945225](README.assets/image-20250324123945225.png)
+  - 构建基于GRU的**decoder**
   
-    - embedding(output,hidden)--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
+  ![image-20250324123945225](README.assets/image-20250324123945225.png)
+  
+  - embedding(output,hidden)--> relu--> gru(hidden) --> output(hidden)--> linear--> softmax
   
   - 基于**GRU和Attention**的**decoder**, 相较于上面的decoder做了**以下改动**
   
@@ -765,8 +797,12 @@ $$\begin{aligned}&z_{t}=\sigma\left(W_{z}\cdot[h_{t-1},x_{t}]\right)\\&r_{t}=\si
 # Transformer
 
 - 优势: 
-  - GPU进行分布式训练, 提交训练效率
-  - 捕捉间隔较长的语义关联性效果更好
+  - 支持GPU**并行**训练, 提交训练效率
+  - 捕捉**间隔较长**的语义关联性效果更好(**长序列**
+  - self-Attention具有语义特征和语法特征
+- 缺点
+  - 计算量大(O(n^2),RNNs为O(N)
+
 
 tranformer架构
 
@@ -776,12 +812,32 @@ tranformer架构
 
   - **输入部分**
     - 源文本嵌入层 (+位置编码器=编码部分输入)+ 目标文本嵌入层(+位置编码器=解码部分输入)
-    - 位置编码器
-
+    
+    - 为什么需要位置编码
+    
+      - attention只能计算词与词之间的关系,与位置无关(打乱顺序后词向量仍然不变),因此需要位置编码(attention支持并行但是对序列关系没感觉,而传统RNN天生就是按顺序执行的,因此自带位置关系
+    
+      - $$
+        PE_{(pos,2i)}=sin(pos/10000^{2i/d_{\mathrm{model}}})\\PE_{(pos,2i+1)}=cos(pos/10000^{2i/d_{\mathrm{model}}})\\
+        根据和差化积,有\\
+        \left\{\begin{array}{l}PE(pos+k,2i)=PE(pos,2i)\times PE(k,2i+1)+PE(pos,2i+1)\times PE(k,2i)\\PE(pos+k,2i+1)=PE(pos,2i+1)\times PE(k,2i+1)-PE(pos,2i)\times PE(k,2i)\end{array}\right.
+        $$
+    
+      - 因此可以通过sin(pos)和cos(pos)表达相对位置关系(**蕴含了这样子的信息,具体的关联和使用靠模型自己去寻找**
+    
+      - 得到的position方阵大小即[max_len,d_model],与embedding矩阵直接叠加即可
+    
+      - 举例子:"我爱你"
+    
+        pos=3=1+2且为奇数,根据上面的公式,cos(3)=cos(1)cos(2)-sin(1)sin(2)
+    
+        "你"的位置可以由"我"和"爱"的位置函数表示
+    
   - **输出部分**
+    
     - 全连接层
     - softmax层
-
+    
   - **编码器部分**
     - 有**N层编码器层组成**
     - **一个编码器层有两个子层连接结构组成**

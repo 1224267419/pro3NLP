@@ -60,10 +60,10 @@ class  PositionalEncoding(nn.Module):
 
         div_term = torch.exp(torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model))  # 跳跃其实是初始化两次,后面的值用于放缩参数
         # print(torch.exp(torch.arange(0, 512, 2) * -(math.log(10000) / 512))) #没有后面的* -(math.log(10000) / 512)值会变inf
-        # print('div_term==', div_term)
-        # print('div_term==', div_term.shape) #div_term== torch.Size([256])
-        # print('sin部分==', torch.sin(positon*div_term))
-        # print('sin部分==', torch.sin(positon*div_term).shape) # sin部分== torch.Size([60, 256])
+        print('div_term==', div_term)
+        print('div_term==', div_term.shape) #div_term== torch.Size([256])
+        print('sin部分==', torch.sin(positon*div_term))
+        print('sin部分==', torch.sin(positon*div_term).shape) # sin部分== torch.Size([60, 256])
         pe[:, 0::2] = torch.sin(positon * div_term)  # 偶数位置用sin处理后的值填充
         # print('cos部分==', torch.cos(positon*div_term))
         # print('cos部分==', torch.cos(positon*div_term).shape)# cos部分== torch.Size([60, 256])

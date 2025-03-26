@@ -127,19 +127,21 @@ print(random.choice(pairs))
 print(input_lang.n_word)
 print(output_lang.n_word)
 
+
+def tensorFromSentence(lang, sentence):
+    """
+    句子转换为张量
+     :param lang: Lang的实例化对象
+     :param sentence: 待转换的句子"""
+    # 句子分割遍历每一个词汇,再用word2index方法找到其对应的索引
+    indexes = [lang.word2index[word] for word in sentence.split(' ')]
+    # 句子末尾添加EOS_token
+    indexes.append(EOS_token)
+    # 将索引列表转换为 n*1  张量
+    return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 #pair2tensor
 def tensorFromPair(pair):
-    def tensorFromSentence(lang, sentence):
-        """
-        句子转换为张量
-         :param lang: Lang的实例化对象
-         :param sentence: 待转换的句子"""
-        # 句子分割遍历每一个词汇,再用word2index方法找到其对应的索引
-        indexes = [lang.word2index[word] for word in sentence.split(' ')]
-        # 句子末尾添加EOS_token
-        indexes.append(EOS_token)
-        # 将索引列表转换为 n*1  张量
-        return torch.tensor(indexes, dtype=torch.long,device=device).view(-1, 1)
+
     """将语言对转换为tensor"""
     #处理源语言和目标语言
     input_tensor=tensorFromSentence(input_lang, pair[0])
@@ -279,12 +281,12 @@ class AttnDecoderRNN(nn.Module):
 
         embedded=self.embedding(input).view(1,1,-1)
         embedded=self.dropout(embedded)
-
+        #在这里 q = embedding处理后的input, k = prev_hidden
         #Q,K拼接做lianer再做softmax
         attn_weight=F.softmax(#拼接embedded和hidden
             self.attn(torch.cat((embedded[0],hidden[0]),1)),dim=1
         )
-        ##bmm计算注意力权重,
+        ##bmm计算注意力权重,q,k计算结果*V
         attn_applied=torch.bmm(attn_weight.unsqueeze(0),encoder_outputs.unsqueeze(0))
 
         output=torch.cat((embedded[0],attn_applied[0]),1)#拼接
@@ -313,6 +315,7 @@ print("output_word",output_word)
 #teacher_forcing 强制修正上一步输出结果为正确,从而避免错错误积累
 
 def train(input_tensor,target_tensor,encoder,decoder,encoder_optimizer,decoder_optimizer,criterion,teacher_forcing_ratio,max_length=MAX_LENGTH):
+
     """
     即使是带attention的版本也可以用相同的train函数,因为多出来的attn_weights参数其实在训练过程中无作用
     :param input_tensor: 源语言tensor
@@ -479,3 +482,19 @@ trainIters(encoder1,attn_decoder1,n_iters=n_iters)
 # encoder1.load_state_dict(torch.load(PATHENCODER))
 # # rnn_1=rnn_1.load_state_dict(torch.load(PATHRNN)) #错误做法,返回_IncompatibleKeys这个对象
 # attn_decoder1.load_state_dict(torch.load(PATH_ATTN_DECODER))
+
+#evaluate
+def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
+    """
+
+    :param encoder:
+    :param decoder:
+    :param sentence: evaluate的句子
+    :param max_length:
+    :return:
+    """
+    with torch.no_grad():#evaluate模式下不需要计算梯度
+        #sentence = [SOS_token] + [word_to_ix[word] for word in sentence.split(' ')] + [EOS_token]
+        input_tensor = tensorFromSentence(input_lang, sentence)
+        #句子长度
+        input_length= input_tensor.size()[0]
