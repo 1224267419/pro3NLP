@@ -177,7 +177,7 @@ class MultiHeadedAttention(nn.Module):
         self.dropout=nn.Dropout(p=dropout)
     def forward(self,query,key,value,mask=None):
         if mask is not None:
-            #mask维度扩充,代表多头的第n个头
+            #mask表示掩码矩阵,用于防止output提前进入
             mask=mask.unsqueeze(0)
         #获取batch_size
         batch_size=query.size(0)
@@ -186,6 +186,7 @@ class MultiHeadedAttention(nn.Module):
         #model(x).view(batch_size,-1,self.head,self.d_k).transpose(1,2),向量转换为 batch_size* head * num_head * d_k(embedding dim)
         #for model,x in zip 部分只用到了liners的前三个项 ,再用model 对 x 进行处理
         #transpose(1,2) 使得seq_len维度和embedding维度相邻,这样子注意力机制才能 得到词义与句子的关系
+        #transposeqkv将qkv切分成注意力头个子矩阵，并转化成适合并行计算的形式
         q,k,v=[model(x).view(batch_size,-1,self.head,self.d_k).transpose(1,2)
                for model,x in zip(self.liners,(query,key,value))]
         print('-=-=', q.shape)
@@ -469,7 +470,7 @@ if __name__ == '__main__':
             :return:
             """
             x=self.sublayer[0](x,lambda x:self.self_attn(x,x,x,tgt_mask)) #自注意力层
-            x=self.sublayer[1](x,lambda x:self.src_attn(x,memory,memory,src_mask))# 普通注意力层
+            x=self.sublayer[1](x,lambda x:self.src_attn(x,memory,memory,src_mask))# 普通注意力层,encoder传来的信息memory
             x=self.sublayer[2](x,self.feed_forward) #前馈全连接层
             return x
     print("decoder layer")

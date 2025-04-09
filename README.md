@@ -891,8 +891,24 @@ tranformer架构
 
     ![image-20250320142909683](README.assets/image-20250320142909683.png)
 
-    多头注意力的结构图中，貌似以这个所谓的多个头就是指多组线性变换层，其实并不是，我只有使用了一组线性变化层，即三个变换张量对Q,K,V分别进行线性变换，这些变换不会改变原有张量的尺寸，因此每个变换矩阵都是方阵，得到输出结果后，多头的作用才开始显现，每个头开始从词义层面分割输出的张量，也就是每个头都想获得一组Q,K,V进行注意力机制的计算，但是**句子中的每个词的表示只获得一部分**，也就是只分割了最后一维的词嵌入向量.这就是所谓的多头，将**每个头的获得的输入送到注意力机制**中，就形成**多头注意力机**.
+    代码中的MultiHeadedAttention类中之间使用了 
 
+    ```python
+    q,k,v=[model(x).view(batch_size,-1,self.head,self.d_k).transpose(1,2)
+           for model,x in zip(self.liners,(query,key,value))]
+    x,self.attn=attention(q,k,v,mask=mask,dropout=self.dropout)
+    ```
+    
+    直接一次性处理了所有的注意力头,因为这里的**attention中没有liner层**参数要进行加算,因此可**以用这种方法并行计算** (因为注意力机制转为矩阵乘法，这里的做法可以看作把**所有的注意力头的参数concat**在一起，把所有的输入一起算了)
+    
+    其中$Attention(Q,K,V)=Softmax(\frac{Q\cdot K^T}{\sqrt{d_k}})\cdot V$
+    
+    
+    
+    
+    
+    多头注意力的结构图中，貌似以这个所谓的多个头就是指多组线性变换层，其实并不是，我只有使用了一组线性变化层，即三个变换张量对Q,K,V分别进行线性变换，这些变换不会改变原有张量的尺寸，因此每个变换矩阵都是方阵，得到输出结果后，多头的作用才开始显现，每个头开始从词义层面分割输出的张量，也就是每个头都想获得一组Q,K,V进行注意力机制的计算，但是**句子中的每个词的表示只获得一部分**，也就是只分割了最后一维的词嵌入向量.这就是所谓的多头，将**每个头的获得的输入送到注意力机制**中，就形成**多头注意力机**.
+    
     **让每个注意力机制去优化每个词汇的不同特征部分**，从而均衡同一种注意力机制可能产生的偏差，**让词义拥有来自更多元的表达**，实验表明可以从而提升模型效果
 
 - 前馈全连接层  PositionwiseFeedForward(nn.Module)
@@ -908,7 +924,7 @@ tranformer架构
 
 - 子层连接结构 SublayerConnection(nn.Module):
 
-  - 定义: 子层(多头注意力子层/前馈全连接子层) + 规范化层 + 残差连接 = 子层连接结构
+  - 定义: 子层(多头注意力子层/前馈全连接子层) + 规范化层 + 残差连接 = 子层连接结构 
 
 - 编码器层: `class EncoderLayer(nn.Module):`
 
@@ -967,6 +983,47 @@ sc=SublayerConnection(size,dropout)
 sc_result=sc(x,sublayer) #残差结果即上一层的输出pe_result+子层函数的输出
 print(sc_result,sc_result.shape) #torch.Size([4, 512])
 ```
+
+
+
+
+
+
+
+![img](README.assets/BERT-GPT-比较.png)
+
+- ELMo 使用自左向右编码和自右向左编码的两个 LSTM 网络，分别以 $P(w_i|w_1,⋯,w_{i−1})$ 和$ P(w_i|w_{i+1},⋯,w_n)$ 为目标函数独立训练，**将训练得到的特征向量以拼接的形式实现双向编码，本质上还是单向编码，只不过是两个方向上的单向编码的拼接而成的双向编码**。
+
+- GPT 使用 Transformer Decoder 作为 Transformer Block，以 $P(w_i|w_1,⋯,w{i_1}) $为目标函数进行训练，**用 Transformer Block 取代 LSTM 作为特征提取器，实现了单向编码，是一个标准的预训练语言模型，即使用 Fine-Tuning 模式解决下游任务。**
+
+- BERT 也是一个标准的预训练语言模型，
+
+  它以 $P(w_i|w_1,⋯,w_{i−1},w_{i+1},⋯,w_n)$ 为目标函数进行训练，BERT 使用的编码器属于双向编码器
+
+  - **BERT 和 ELMo** 的区别在于**使用 Transformer Block** 作为特征提取器，加强了语义特征提取的能力；
+  - **BERT** 和 GPT 的区别在于使用 **Transformer Encoder** 作为 Transformer Block，并且**将 GPT 的单向编码改成双向编码**，也就是说 BERT **舍弃了文本生成能力，换来了更强的语义理解能力**。(所以新的生成式语言模型都用的GPT)
+
+
+
+### FastText
+
+优势原因:
+
+- 结构简单
+- 层次softmax 使用霍夫曼树 https://blog.csdn.net/BGoodHabit/article/details/106163130
+- 添加了n_gram特征, 就是为了弥补模型简单而无法捕捉词序特征的缺陷
+
+###### 代码：[6_fasttext.py](3_RNN\6_fasttext.py) 
+
+
+
+### 迁移学习
+
+
+
+
+
+
 
 # TODO1
 
