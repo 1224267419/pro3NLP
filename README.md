@@ -1013,7 +1013,15 @@ print(sc_result,sc_result.shape) #torch.Size([4, 512])
 - 层次softmax 使用霍夫曼树 https://blog.csdn.net/BGoodHabit/article/details/106163130
 - 添加了n_gram特征, 就是为了弥补模型简单而无法捕捉词序特征的缺陷
 
-###### 代码：[6_fasttext.py](3_RNN\6_fasttext.py) 
+###### 代码： [１_fasttext.py](4_fasttext\１_fasttext.py) 
+
+
+
+
+
+
+
+
 
 
 
