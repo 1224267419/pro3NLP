@@ -1013,21 +1013,18 @@ print(sc_result,sc_result.shape) #torch.Size([4, 512])
 - 层次softmax 使用霍夫曼树 https://blog.csdn.net/BGoodHabit/article/details/106163130
 - 添加了n_gram特征, 就是为了弥补模型简单而无法捕捉词序特征的缺陷
 
-###### 代码： [１_fasttext.py](4_fasttext\１_fasttext.py) 
+###### 代码演示： [１_fasttext.py](4_fasttext\１_fasttext.py) 
 
+训练词向量演示 [代码](4_fasttext\2_enwik9_word_vector_train.py) 
 
-
-
-
-
-
-
+预训练的词向量迁移 [3_pretrain_vec.py](4_fasttext\3_pretrain_vec.py) 
 
 
 
 ### 迁移学习
 
-
+- 第一种 157种语言模式：CBOW维度：300[连接](https://fasttext.cc/docs/en/crawl-vectors.html)
+- 第二种 294种语言模式：skipgram维度：300[连接](https://fasttext.cc/docs/en/pretrained-vectors.html)
 
 
 
