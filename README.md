@@ -1013,7 +1013,7 @@ print(sc_result,sc_result.shape) #torch.Size([4, 512])
 - 层次softmax 使用霍夫曼树 https://blog.csdn.net/BGoodHabit/article/details/106163130
 - 添加了n_gram特征, 就是为了弥补模型简单而无法捕捉词序特征的缺陷
 
-###### 代码演示： [１_fasttext.py](4_fasttext\１_fasttext.py) 
+######  [１_fasttext.py](4_fasttext\１_fasttext.py) 
 
 训练词向量演示 [代码](4_fasttext\2_enwik9_word_vector_train.py) 
 
@@ -1025,6 +1025,28 @@ print(sc_result,sc_result.shape) #torch.Size([4, 512])
 
 - 第一种 157种语言模式：CBOW维度：300[连接](https://fasttext.cc/docs/en/crawl-vectors.html)
 - 第二种 294种语言模式：skipgram维度：300[连接](https://fasttext.cc/docs/en/pretrained-vectors.html)
+
+#### 预训练模型(Pretrained model):
+
+一般情况下预训练模型都是大型模型，具备复杂的网络结构，众多的参数量，以及在足够大的数据集下进行训练而产生的模型.
+
+
+
+##### 微调(Fine-tuning):
+
+根据**给定的预训练模型**，**改变它的部分参数**或者为其**新增部分输出结构**后，通过**在小部分数据集上训练**，来使整个**模型更好的适应特定任务**。
+
+##### 微调脚本本(Fine-tuning script):
+
+实现微调过程的代码文件。这些脚本文件中，应包括对预训练模型的调用，对微调参数的选定以及对微调结构的更改等，同时，因为微调是一个训练过程，它同样需要一些超参数的设定，以及损失函数和优化器的选取等，因此微调脚本往往也包含了整个迁移学习的过程
+
+通常而言，选择以及完成的规范脚本进行修改显然效率更高
+
+
+
+
+
+
 
 
 
