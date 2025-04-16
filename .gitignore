@@ -10,3 +10,11 @@
 4_fasttext/model/
 
 3_RNN/fastText
+
+4_fasttext/glue_data/
+
+5_transfer_learning/glue_data/
+
+transformers/
+
+*.bin

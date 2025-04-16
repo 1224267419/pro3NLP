@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/3_RNN/fastText" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/transformers" vcs="Git" />
   </component>
 </project>
